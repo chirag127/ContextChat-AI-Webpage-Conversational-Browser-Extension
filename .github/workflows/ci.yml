@@ -1,0 +1,92 @@
+# CI/CD Pipeline for ContextChat AI Browser Extension
+# Standardized by Apex Technical Authority (December 2025 Standard)
+
+name: ContextChat CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint_and_test:
+    name: Lint & Unit Test (JavaScript/TypeScript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (Apex Standard for JS/TS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Adhering to modern LTS for stability
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Apex Style Check (Biome Linter/Formatter)
+        # Assuming Biome is configured in package.json scripts as 'lint:ci'
+        run: npm run lint:ci
+
+      - name: Run Unit Tests (Vitest)
+        # Assuming Vitest is configured for CI execution
+        run: npm test -- --coverage
+
+      - name: Upload Coverage Report (Codecov)
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unit
+
+  e2e_build_and_test:
+    name: E2E Test & Build Artifact Prep
+    runs-on: ubuntu-latest
+    needs: lint_and_test
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Extension (Vite/WXT)
+        # Command assumes WXT is used for building cross-browser compatible extensions
+        run: npm run build
+
+      - name: Run End-to-End Tests (Playwright)
+        # Assuming Playwright setup targets the built extension components
+        run: npx playwright test --project=chromium
+
+      - name: Archive Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: contextchat-build-artifacts
+          path: dist/ # Adjust path based on actual build output directory
+
+  security_scan:
+    name: Static Security Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Placeholder for a modern SAST tool, e.g., Snyk or GitHub Advanced Security (CodeQL)
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/upload@v3
+        with:
+          category: '/language:javascript'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          languages: javascript
